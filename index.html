@@ -1,1 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flores Amarillas Para Ti 💛</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+    <style>
+        .font-handwriting { font-family: 'Caveat', cursive; }
+        .font-title { font-family: 'Dancing Script', cursive; }
+        .font-body { font-family: 'Montserrat', sans-serif; }
+
+        /* Animaciones para el sobre */
+        .envelope-wrapper {
+            perspective: 1000px;
+        }
+        
+        .envelope {
+            position: relative;
+            width: 320px;
+            height: 220px;
+            background-color: #fef08a;
+            border-radius: 8px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .envelope:hover {
+            transform: translateY(-5px);
+        }
+
+        .envelope-flap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-left: 160px solid transparent;
+            border-right: 160px solid transparent;
+            border-top: 130px solid #fde047;
+            transform-origin: top;
+            transition: transform 0.6s ease-in-out, z-index 0.6s;
+            z-index: 3;
+        }
+
+        .envelope-pocket {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-left: 160px solid #facc15;
+            border-right: 160px solid #facc15;
+            border-bottom: 110px solid #eab308;
+            border-radius: 0 0 8px 8px;
+            z-index: 2;
+        }
+
+        .envelope-wax {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #dc2626 60%, #991b1b 100%);
+            border-radius: 50%;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+
+        .envelope.open .envelope-flap {
+            transform: rotateX(180deg);
+            z-index: 1;
+        }
+
+        .envelope.open .envelope-wax {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+        }
+
+        .flower-card {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .flower-card:hover {
+            transform: translateY(-8px) scale(1.03);
+        }
+
+        /* Lluvia de pétalos canvas */
+        #petal-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Ocultar scrollbar suavemente */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fefce8;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #fde047;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 min-h-screen font-body text-gray-800 overflow-x-hidden relative">
+
+    <!-- Canvas para la lluvia interactiva de pétalos -->
+    <canvas id="petal-canvas"></canvas>
+
+    <!-- Botón Flotante para Personalizar -->
+    <button onclick="openEditModal()" class="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md hover:bg-white text-amber-700 px-4 py-2 rounded-full shadow-lg border border-amber-200 transition-all font-semibold flex items-center gap-2 text-sm">
+        <span>✏️</span> Personalizar Texto
+    </button>
+
+    <!-- PANTALLA 1: EL SOBRE -->
+    <div id="screen-envelope" class="min-h-screen flex flex-col items-center justify-center p-4 transition-opacity duration-700">
+        <div class="text-center mb-8 animate-bounce">
+            <span class="text-amber-600 font-handwriting text-2xl md:text-3xl font-bold">Tienes una carta muy especial... 🌻</span>
+            <p class="text-gray-500 text-sm mt-1">Haz clic en el sello de cera para abrirla</p>
+        </div>
+
+        <div class="envelope-wrapper">
+            <div id="envelope" class="envelope" onclick="openEnvelope()">
+                <div class="envelope-flap"></div>
+                <div class="envelope-wax">
+                    <span class="text-white text-xl">💛</span>
+                </div>
+                <div class="envelope-pocket"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA 2: LA CARTA GRANDE (Oculta al inicio) -->
+    <div id="screen-letter" class="hidden min-h-screen max-w-3xl mx-auto px-4 py-12 relative z-20">
+        
+        <!-- Tarjeta principal tipo pergamino -->
+        <div class="bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl p-6 md:p-12 border-2 border-amber-200/60 relative overflow-hidden my-8">
+            
+            <!-- Adornos florales en las esquinas -->
+            <div class="absolute -top-6 -left-6 text-6xl opacity-30 select-none">🌻</div>
+            <div class="absolute -bottom-6 -right-6 text-6xl opacity-30 select-none">🌼</div>
+
+            <!-- Encabezado -->
+            <div class="text-center mb-8 border-b-2 border-amber-100 pb-6">
+                <span class="inline-block bg-amber-100 text-amber-800 px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase mb-3">Un regalo del corazón</span>
+                <h1 id="letter-recipient" class="font-title text-4xl md:text-6xl text-amber-600 mb-2">Para el amor de mi vida 💛</h1>
+                <p id="letter-subtitle" class="font-handwriting text-2xl text-amber-700">Estas flores amarillas son solo un reflejo de lo que me haces sentir...</p>
+            </div>
+
+            <!-- Cuerpo de la Carta -->
+            <div class="space-y-6 text-gray-700 leading-relaxed text-base md:text-lg font-light text-justify">
+                <p id="paragraph-1">
+                    Dicen que regalar flores amarillas significa querer compartir una vida entera al lado de alguien, celebrar la alegría de su existencia y prometer estar ahí en cada primavera. Hoy no quería darte solo flores que se marchiten con los días, sino un rincón eterno que siempre te recuerde lo inmensamente importante que eres para mí.
+                </p>
+
+                <p id="paragraph-2">
+                    Llegaste a mi vida para iluminar hasta el rincón más oscuro, llenando cada día con tu sonrisa, tu calidez y esa forma tan única que tienes de hacer que todo sea mejor. Amar cada uno de tus detalles, tus risas, tus conversaciones y hasta tus silencios es lo más bonito que me ha pasado.
+                </p>
+
+                <p id="paragraph-3">
+                    Quiero que cada flor en esta carta represente un abrazo sincero, un beso tierno y un "te amo" sostenido en el tiempo. Gracias por coincidir conmigo en este mundo, por ser mi refugio, mi lugar favorito y mi amor bonito. Prometo cuidarte, valorar todo lo que eres y sacarte una sonrisa siempre que lo necesites.
+                </p>
+            </div>
+
+            <!-- Ramo de Flores Interactivo -->
+            <div class="my-10">
+                <h3 class="text-center font-handwriting text-3xl text-amber-600 mb-6">Toca cada flor para descubrir una nota secreta ✨</h3>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Flor 1 -->
+                    <div onclick="revealFlowerMessage(1, '🌻 Girasol: Simboliza que siempre buscaré tu luz y tu felicidad, sin importar la distancia.')" class="flower-card bg-amber-50/80 p-4 rounded-2xl border border-amber-200 text-center cursor-pointer shadow-sm">
+                        <div class="text-5xl mb-2">🌻</div>
+                        <span class="font-bold text-amber-800 text-sm">Girasol</span>
+                    </div>
+
+                    <!-- Flor 2 -->
+                    <div onclick="revealFlowerMessage(2, '🌷 Tulipán: Representa el amor puro, perfecto e incondicional que siento por ti cada día.')" class="flower-card bg-amber-50/80 p-4 rounded-2xl border border-amber-200 text-center cursor-pointer shadow-sm">
+                        <div class="text-5xl mb-2">🌷</div>
+                        <span class="font-bold text-amber-800 text-sm">Tulipán</span>
+                    </div>
+
+                    <!-- Flor 3 -->
+                    <div onclick="revealFlowerMessage(3, '🌹 Rosa Amarilla: Muestra la calidez, la alegría y la hermosa complicidad que compartimos.')" class="flower-card bg-amber-50/80 p-4 rounded-2xl border border-amber-200 text-center cursor-pointer shadow-sm">
+                        <div class="text-5xl mb-2">🌹</div>
+                        <span class="font-bold text-amber-800 text-sm">Rosa</span>
+                    </div>
+
+                    <!-- Flor 4 -->
+                    <div onclick="revealFlowerMessage(4, '🌼 Margarita: Recuerda lo sencillo, bonito y verdadero que es nuestro amor.')" class="flower-card bg-amber-50/80 p-4 rounded-2xl border border-amber-200 text-center cursor-pointer shadow-sm">
+                        <div class="text-5xl mb-2">🌼</div>
+                        <span class="font-bold text-amber-800 text-sm">Margarita</span>
+                    </div>
+                </div>
+
+                <!-- Caja de mensaje desplegado -->
+                <div id="flower-message-box" class="hidden mt-6 p-4 bg-amber-100/70 border border-amber-300 rounded-2xl text-center text-amber-900 font-handwriting text-2xl transition-all animate-fade-in">
+                    <p id="flower-message-text"></p>
+                </div>
+            </div>
+
+            <!-- Pregunta final con el botón divertido -->
+            <div class="mt-12 pt-8 border-t border-amber-100 text-center">
+                <p class="font-handwriting text-3xl text-amber-700 mb-6">¿Aceptas estas flores amarillas y todo mi amor para siempre?</p>
+                
+                <div class="flex flex-wrap justify-center items-center gap-4 min-h-[60px] relative" id="button-container">
+                    <button onclick="acceptLove()" class="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-white font-bold px-8 py-3 rounded-full shadow-lg transform hover:scale-105 transition-all text-lg">
+                        ¡Sí, acepto todo tu amor! 💛
+                    </button>
+                    
+                    <button id="no-btn" onmouseover="moveNoButton()" onclick="moveNoButton()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-full shadow transition-all text-sm">
+                        No mucho 🙈
+                    </button>
+                </div>
+            </div>
+
+            <!-- Firma -->
+            <div class="mt-12 text-right">
+                <p class="text-gray-500 text-sm italic">Con todo mi amor infinito,</p>
+                <p id="letter-sender" class="font-title text-3xl text-amber-600 mt-1">Por siempre tuyo/a ❤️</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE PERSONALIZACIÓN -->
+    <div id="modal-edit" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h2 class="text-2xl font-bold text-amber-600 mb-4 flex items-center gap-2">✏️ Personalizar Carta</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Para quién es (Título)</label>
+                    <input type="text" id="input-recipient" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Subtítulo</label>
+                    <input type="text" id="input-subtitle" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Párrafo 1</label>
+                    <textarea id="input-p1" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Párrafo 2</label>
+                    <textarea id="input-p2" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Párrafo 3</label>
+                    <textarea id="input-p3" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Firma / Tu Nombre</label>
+                    <input type="text" id="input-sender" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeEditModal()" class="px-5 py-2.5 rounded-full text-gray-500 font-semibold hover:bg-gray-100 text-sm">Cancelar</button>
+                <button onclick="saveCustomizations()" class="px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md text-sm">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CELEBRACIÓN AL ACEPTAR -->
+    <div id="modal-celebration" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md text-center shadow-2xl border-4 border-yellow-300 transform scale-105 transition-all">
+            <div class="text-6xl mb-4 animate-bounce">🌻💖🌻</div>
+            <h2 class="font-title text-4xl text-amber-600 mb-2">¡Me haces la persona más feliz!</h2>
+            <p class="text-gray-600 text-base mb-6">Prometo hacer que cada día juntos brille tan bonito como estas flores amarillas.</p>
+            <button onclick="closeCelebration()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 py-3 rounded-full shadow-lg transition-all">
+                Te amo muchísimo ✨
+            </button>
+        </div>
+    </div>
+
+    <!-- JS Y LÓGICA INTERACTIVA -->
+    <script>
+        // --- Web Audio API (Sintetizador de efectos de sonido simples) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playChime() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.5); // C6
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playPopSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // --- Abrir Sobre ---
+        function openEnvelope() {
+            playChime();
+            const env = document.getElementById('envelope');
+            env.classList.add('open');
+            
+            setTimeout(() => {
+                document.getElementById('screen-envelope').classList.add('opacity-0');
+                setTimeout(() => {
+                    document.getElementById('screen-envelope').classList.add('hidden');
+                    const letter = document.getElementById('screen-letter');
+                    letter.classList.remove('hidden');
+                    // Lanzar un poco de confeti al abrir
+                    confetti({
+                        particleCount: 60,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#facc15', '#fde047', '#fbbf24']
+                    });
+                }, 700);
+            }, 600);
+        }
+
+        // --- Revelar Mensajes de Flores ---
+        function revealFlowerMessage(id, text) {
+            playPopSound();
+            const box = document.getElementById('flower-message-box');
+            const txt = document.getElementById('flower-message-text');
+            box.classList.remove('hidden');
+            txt.innerText = text;
+
+            // Confeti pequeño sobre la flor
+            confetti({
+                particleCount: 25,
+                spread: 40,
+                origin: { y: 0.7 },
+                colors: ['#facc15', '#fbbf24']
+            });
+        }
+
+        // --- Botón del NO escurridizo ---
+        const noPhrases = [
+            "¡Oye, por aquí no! 🙈",
+            "¿Seguro/a? Intenta de nuevo 💛",
+            "¡Casi me atrapas! 😂",
+            "¡Esa opción no vale! ✨",
+            "¡Mejor presiona el otro! 🌻"
+        ];
+        let phraseIdx = 0;
+
+        function moveNoButton() {
+            playPopSound();
+            const btn = document.getElementById('no-btn');
+            
+            // Cambiar texto
+            btn.innerText = noPhrases[phraseIdx];
+            phraseIdx = (phraseIdx + 1) % noPhrases.length;
+
+            // Calcular nueva posición aleatoria
+            const x = (Math.random() - 0.5) * 260;
+            const y = (Math.random() - 0.5) * 160;
+            
+            btn.style.transform = `translate(${x}px, ${y}px)`;
+        }
+
+        // --- Aceptar Amor ---
+        function acceptLove() {
+            playChime();
+            // Disparar confeti masivo
+            const duration = 3 * 1000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#facc15', '#fde047', '#ef4444', '#ffffff']
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#facc15', '#fde047', '#ef4444', '#ffffff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            })();
+
+            document.getElementById('modal-celebration').classList.remove('hidden');
+        }
+
+        function closeCelebration() {
+            document.getElementById('modal-celebration').classList.add('hidden');
+        }
+
+        // --- Personalización Modal ---
+        function openEditModal() {
+            document.getElementById('input-recipient').value = document.getElementById('letter-recipient').innerText;
+            document.getElementById('input-subtitle').value = document.getElementById('letter-subtitle').innerText;
+            document.getElementById('input-p1').value = document.getElementById('paragraph-1').innerText;
+            document.getElementById('input-p2').value = document.getElementById('paragraph-2').innerText;
+            document.getElementById('input-p3').value = document.getElementById('paragraph-3').innerText;
+            document.getElementById('input-sender').value = document.getElementById('letter-sender').innerText;
+            
+            document.getElementById('modal-edit').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('modal-edit').classList.add('hidden');
+        }
+
+        function saveCustomizations() {
+            document.getElementById('letter-recipient').innerText = document.getElementById('input-recipient').value;
+            document.getElementById('letter-subtitle').innerText = document.getElementById('input-subtitle').value;
+            document.getElementById('paragraph-1').innerText = document.getElementById('input-p1').value;
+            document.getElementById('paragraph-2').innerText = document.getElementById('input-p2').value;
+            document.getElementById('paragraph-3').innerText = document.getElementById('input-p3').value;
+            document.getElementById('letter-sender').innerText = document.getElementById('input-sender').value;
+            
+            closeEditModal();
+        }
+
+        // --- Lluvia de Pétalos en Canvas ---
+        const canvas = document.getElementById('petal-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const petals = [];
+        const numPetals = 30;
+
+        for (let i = 0; i < numPetals; i++) {
+            petals.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 8 + 6,
+                speedY: Math.random() * 1.5 + 0.8,
+                speedX: Math.random() * 1 - 0.5,
+                angle: Math.random() * 360,
+                spin: Math.random() * 0.04 - 0.02,
+                color: ['#facc15', '#fde047', '#fef08a', '#eab308'][Math.floor(Math.random() * 4)]
+            });
+        }
+
+        function animatePetals() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            petals.forEach(p => {
+                p.y += p.speedY;
+                p.x += Math.sin(p.y * 0.01) + p.speedX;
+                p.angle += p.spin;
+
+                if (p.y > canvas.height) {
+                    p.y = -20;
+                    p.x = Math.random() * canvas.width;
+                }
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.beginPath();
+                ctx.ellipse(0, 0, p.size, p.size / 2, 0, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                ctx.restore();
+            });
+
+            requestAnimationFrame(animatePetals);
+        }
+        animatePetals();
+    </script>
+</body>
+</html>
